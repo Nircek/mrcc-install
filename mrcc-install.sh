@@ -150,6 +150,10 @@ init2 () {
   log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
   arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
   log "$?"
+  trace cd /mnt/root
+  [ -e .bashrc ] trace cp .bashrc .bashrc_old
+  trace echo "/root/.mrcc/pre/mrcc-install.sh post-install" >> .bashrc
+  reboot
 }
 
 [ "$1" = "install" ] && {
@@ -190,5 +194,13 @@ init2 () {
   trace-file echo "initrd /initramfs-linux.img"
   trace-file echo "options root=`blkid -o export $2 | grep PARTUUID 2> $LOG_FILE` rw"
   trace pacman -S intel-ucode --noconfirm
+}
+
+[ "$1" = "post-install" ] && {
+  init2
+  LOG_FILE="/root/.mrcc/pre/log.txt"
+  trace rm /root/.bashrc
+  [ -e /root/.bashrc_old ] trace mv /root/.bashrc_old /root/.bashrc
+  log "Hello world!"
 }
 exit 0
