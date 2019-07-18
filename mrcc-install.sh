@@ -130,6 +130,7 @@ init2 () {
     choice "I will format it." && trace mkfs.ext4 $archdisk && break
   done
   read -p"Type the name of your SWAP partition: " swapdisk
+  trace mkswap $swapdisk
   trace swapon $swapdisk
   trace mount $archdisk /mnt
   trace mkdir /mnt/boot
@@ -152,7 +153,8 @@ init2 () {
   log "$?"
   trace cd /mnt/root
   [ -e .bashrc ] trace cp .bashrc .bashrc_old
-  trace echo "/root/.mrcc/pre/mrcc-install.sh post-install" >> .bashrc
+  file=".bashrc"
+  trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
   reboot
 }
 
@@ -192,7 +194,8 @@ init2 () {
   trace-file echo "linux /vmlinuz-linux"
   trace-file echo "initrd /intel-ucode.img"
   trace-file echo "initrd /initramfs-linux.img"
-  trace-file echo "options root=`blkid -o export $2 | grep PARTUUID 2> $LOG_FILE` rw"
+  trace-file echo "initrd /initramfs-linux-fallback.img"
+  trace-file echo "options root=`blkid -o export $2 | grep PARTUUID 2>> $LOG_FILE` rw"
   trace pacman -S intel-ucode --noconfirm
 }
 
