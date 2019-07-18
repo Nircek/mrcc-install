@@ -148,7 +148,7 @@ init2 () {
   log "$?"
   trace cp $0 $PRE_FOLDER/mrcc-install.sh
   log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
-  chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
+  arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
   log "$?"
 }
 
