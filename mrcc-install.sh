@@ -130,7 +130,7 @@ init2 () {
     choice "I will format it." && trace mkfs.ext4 $archdisk && break
   done
   read -p"Type the name of your SWAP partition: " swapdisk
-  trace mkswap $swapdisk
+  choice "Do you want to format it?" && trace mkswap $swapdisk
   trace swapon $swapdisk
   trace mount $archdisk /mnt
   trace mkdir /mnt/boot
@@ -155,7 +155,8 @@ init2 () {
   [ -e .bashrc ] trace cp .bashrc .bashrc_old
   file=".bashrc"
   trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
-  reboot
+  trace chmod +x .bashrc
+  shutdown now
 }
 
 [ "$1" = "install" ] && {
@@ -188,6 +189,7 @@ init2 () {
   file="loader.conf"
   trace-file echo "default arch"
   trace-file echo "timeout 5"
+  trace mkdir entires
   trace cd entries/
   file="arch.conf"
   trace-file echo "title Arch Linux"
