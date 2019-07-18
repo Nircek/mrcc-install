@@ -141,11 +141,11 @@ init2 () {
   trace-file genfstab -U /mnt
   CH_PRE_FOLDER="/root/.mrcc/pre" #CHroot
   PRE_FOLDER="/mnt$CH_PRE_FOLDER"
-  trace mkdir -p /mnt/root/.mrcc/pre
+  trace mkdir -p $PRE_FOLDER
   NEW_LOG_FILE=$PRE_FOLDER/log.txt
   log "$""mv $LOG_FILE $NEW_LOG_FILE"
   mv $LOG_FILE $NEW_LOG_FILE
-  LOG_FILE=/mnt/root/.mrcc/pre/log.txt
+  LOG_FILE=$PRE_FOLDER/log.txt
   log "$?"
   trace cp $0 $PRE_FOLDER/mrcc-install.sh
   log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
@@ -156,6 +156,7 @@ init2 () {
   file=".bashrc"
   trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
   trace chmod +x .bashrc
+  trace mv $HISTFILE /mnt/$HISTFILE
   shutdown now
 }
 
