@@ -91,7 +91,7 @@ init2 () {
   }
 }
 
-[ "%1" != "install" ] && [ "%1" != "post-install" ] && {
+[ "$1" != "install" ] && [ "$1" != "post-install" ] && {
   echo -e "$text"
   choice-no "Do you accept this?" && exit 1
   log "Started logging"
@@ -109,10 +109,9 @@ init2 () {
   log "The nodename is $name."
   log "I think it $good an iso of Arch Linux."
   [ "$good" != "is" ] && choice-no "Do you REALLY want to continue?" && exit 3
-  exit 0
   trace loadkeys pl
   trace setfont lat2-16.psfu.gz -m 8859-2
-  internet && trace timedatectl set-ntp true
+  internet && trace timedatectl set-ntp true && sleep 5
   trace timedatectl status
   trace fdisk -l
   while true
@@ -134,12 +133,13 @@ init2 () {
   trace swapon $swapdisk
   trace mount $archdisk /mnt
   trace mkdir /mnt/boot
-  trace mount $swapdisk /mnt/boot
+  trace mount $efidisk /mnt/boot
   choice "Do you want to install Wi-Fi stuff?" && adds="wpa_supplicant dialog" || adds=""
   trace pacstrap /mnt base $adds
   file="/mnt/etc/fstab"
   trace-file genfstab -U /mnt
-  PRE_FOLDER=/mnt/root/.mrcc/pre
+  CH_PRE_FOLDER="/root/.mrcc/pre" #CHroot
+  PRE_FOLDER="/mnt$CH_PRE_FOLDER"
   trace mkdir -p /mnt/root/.mrcc/pre
   NEW_LOG_FILE=$PRE_FOLDER/log.txt
   log "$""mv $LOG_FILE $NEW_LOG_FILE"
@@ -147,13 +147,14 @@ init2 () {
   LOG_FILE=/mnt/root/.mrcc/pre/log.txt
   log "$?"
   trace cp $0 $PRE_FOLDER/mrcc-install.sh
-  log "$""chroot /mnt $PRE_FOLDER/mrcc-install.sh install $archdisk"
-  chroot /mnt $PRE_FOLDER/mrcc-install.sh install
+  log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
+  chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
   log "$?"
 }
 
 [ "$1" = "install" ] && {
   init2
+  LOG_FILE="/root/.mrcc/pre/log.txt"
   trace ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
   trace hwclock --systohc
   trace timedatectl status
@@ -187,7 +188,7 @@ init2 () {
   trace-file echo "linux /vmlinuz-linux"
   trace-file echo "initrd /intel-ucode.img"
   trace-file echo "initrd /initramfs-linux.img"
-  trace-file echo "options root=`blkid -o export $2 | grep PARTUUID` rw"
+  trace-file echo "options root=`blkid -o export $2 | grep PARTUUID 2> $LOG_FILE` rw"
   trace pacman -S intel-ucode --noconfirm
 }
 exit 0
