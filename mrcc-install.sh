@@ -156,7 +156,7 @@ init2 () {
   file=".bashrc"
   trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
   trace chmod +x .bashrc
-  trace mv $HISTFILE /mnt/$HISTFILE
+  ls ~/.*_history &>/dev/null && trace mv ~/.*_history $PRE_FOLDER
   shutdown now
 }
 
@@ -177,7 +177,7 @@ init2 () {
   trace-file echo "KEYMAP=pl"
   trace-file echo "FONT=lat2-16.psfu.gz"
   trace-file echo "FONT_MAP=8859-2"
-  name="MRCC-INSTALL-TEST"
+  name="ARCH-MRCC-`date +"%-d%-m%y"`"
   file="/etc/hostname"
   trace-file echo "$name"
   file=/etc/hosts
