@@ -152,10 +152,10 @@ init2 () {
   log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
   arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
   log "$?"
-  [ -e .bashrc ] trace cp /mnt/root/.bashrc /mnt/root/.bashrc_old
-  file="/mnt/root/.bashrc"
+  [ -e .bash_profile ] trace cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
+  file="/mnt/root/.bash_profile"
   trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
-  trace chmod +x /mnt/root/.bashrc
+  trace chmod +x /mnt/root/.bash_profile
   shutdown now
 }
 
@@ -201,8 +201,8 @@ init2 () {
 [ "$1" = "post-install" ] && {
   init2
   LOG_FILE="/root/.mrcc/pre/log.txt"
-  trace rm /root/.bashrc
-  [ -e /root/.bashrc_old ] trace mv /root/.bashrc_old /root/.bashrc
+  trace rm /root/.bash_profile
+  [ -e /root/.bash_profile_old ] trace mv /root/.bash_profile_old /root/.bash_profile
   log "Hello world!"
 }
 exit 0
