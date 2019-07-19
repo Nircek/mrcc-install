@@ -148,15 +148,14 @@ init2 () {
   LOG_FILE=$PRE_FOLDER/log.txt
   log "$?"
   trace cp $0 $PRE_FOLDER/mrcc-install.sh
+  ls ~/.*_history &>/dev/null && trace mv ~/.*_history $PRE_FOLDER
   log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
   arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
   log "$?"
-  trace cd /mnt/root
-  [ -e .bashrc ] trace cp .bashrc .bashrc_old
-  file=".bashrc"
+  [ -e .bashrc ] trace cp /mnt/root/.bashrc /mnt/root/.bashrc_old
+  file="/mnt/root/.bashrc"
   trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
-  trace chmod +x .bashrc
-  ls ~/.*_history &>/dev/null && trace mv ~/.*_history $PRE_FOLDER
+  trace chmod +x /mnt/root/.bashrc
   shutdown now
 }
 
@@ -186,13 +185,10 @@ init2 () {
   trace-file echo -e "127.0.1.1\t$name.localdomain\t$name"
   trace passwd
   trace bootctl install
-  trace cd /boot/loader/
-  file="loader.conf"
+  file="/boot/loader/loader.conf"
   trace-file echo "default arch"
   trace-file echo "timeout 5"
-  trace mkdir entries
-  trace cd entries/
-  file="arch.conf"
+  file="/boot/loader/entries/arch.conf"
   trace-file echo "title Arch Linux"
   trace-file echo "linux /vmlinuz-linux"
   trace-file echo "initrd /intel-ucode.img"
