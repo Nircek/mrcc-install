@@ -190,7 +190,7 @@ init2 () {
   file="loader.conf"
   trace-file echo "default arch"
   trace-file echo "timeout 5"
-  trace mkdir entires
+  trace mkdir entries
   trace cd entries/
   file="arch.conf"
   trace-file echo "title Arch Linux"
