@@ -24,16 +24,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-usage="USAGE: $0 [OPTIONS]"
+read -rd '' header << EOF
+mrcc-install
+Copyright (c) 2019 Nircek
+under MIT License
+EOF
+read -rd '' short_license << EOF
+There is NO WARRANTY, to the extent permitted by law.
+I'm not taking any responsibility for anything that this program does.
+Please use it with caution.
+EOF
+usage='USAGE: $0 <STATE> [OPTIONS]
+use "$0 -h" for help'
 read -rd '' help << EOF
-USAGE: $0 [OPTIONS]
+USAGE: $0 <STATE> [OPTIONS]
+
+There are several states:
+pre-install (default)
+install
+post-install
+
 There are several options:
+  -h display this help message
   -i non-interactive mode (don't ask for anything)
-     if you want to use it you must trigger at least:
+     if you want to use it, you must trigger at least:
      -L -e efi -a arch -s swap -A
   -L license agreement
-  -l pre-install log.file (default: ./log.txt)
-  -f force when it is not an iso of Arch Linux
+  -l pre-install log file (default: ./log.txt)
+  -F force when it is not an iso of Arch Linux
   -q quiet don't print to stdout log, only interactive things
   -e path to EFI device (e.g. /dev/sda1)
   -a path to device where Arch should be installed
@@ -45,10 +63,17 @@ There are several options:
   -f post-install folder with mrcc stuff (default: /root/.mrcc)
   -r remove the mrcc folder when it isn't needed (will lost logs)
   -n computer name (default: ARCH-MRCC-`date +"%-d%-m%y"`)
-  -F final command to be executed after install (e.g. "shutdown 0",
+  -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")
+
+Exit codes:
+   1 license disagreement
+   2 not EFI environment
+   3 not iso of an Arch Linux and not forced
+   4 -i without needed parameters
+   5 parse error
 EOF
-interactive_mode=false
+interactive_mode=true
 license=false
 LOG_FILE="./log.txt"
 force=false
@@ -58,8 +83,57 @@ archformat=false
 swapformat=false
 wifiinstall=false
 mrcc_folder="/root/.mrcc"
+mrcc_remove=false
 name="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
+state="pre-install"
+
+states=(pre-install install post-install -h)
+[ $# -gt 0 ] && { [[ ${states[*]} =~ $1 ]] || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
+state="$1"
+[ "$state" = "-h" ] && { echo -e "$header\n\n$short_license\n\n$help"; exit 0; }
+shift
+
+args="$@"
+
+while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:" opt
+do
+  case $opt in
+    h) echo -e "$header\n\n$short_license\n\n$help"; exit 0;;
+    i) interactive_mode=false;;
+    L) license=true;;
+    l) LOG_FILE="$OPTARG";;
+    F) force=true;;
+    q) quiet=true;;
+    e) efidisk="$OPTARG";;
+    a) archdisk="$OPTARG";;
+    s) swapdisk="$OPTARG";;
+    E) efiformat=true;;
+    A) archformat=true;;
+    S) swapformat=true;;
+    w) wifiinstall=true;;
+    f) mrcc_folder="$OPTARG";;
+    r) mrcc_remove=true;;
+    n) name="$OPTARG";;
+    x) finally="$OPTARG";;
+    \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
+    :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
+  esac
+done
+
+shift $(( OPTIND - 1 ))
+[ $# -gt 0 ] && { echo -e "error: too many arguments\n$usage" >&2; exit 5; }
+
+
+if ! $interactive_mode
+then
+  error () { echo "error: non-interactive mode is on but '$1' option is not provided" >&2; exit 4; }
+  [ "$license" = "false" ] && error -L
+  [ -z "$efidisk" ] && error -e
+  [ -z "$archdisk" ] && error -a
+  [ -z "$swapdisk" ] && error -s
+  [ "$archformat" = "false" ] && error -A
+fi
 
 choice () {
   echo -n "$@ [y/n] "
