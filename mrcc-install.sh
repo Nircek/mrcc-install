@@ -23,6 +23,44 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+usage="USAGE: $0 [OPTIONS]"
+read -rd '' help << EOF
+USAGE: $0 [OPTIONS]
+There are several options:
+  -i non-interactive mode (don't ask for anything)
+     if you want to use it you must trigger at least:
+     -L -e efi -a arch -s swap -A
+  -L license agreement
+  -l pre-install log.file (default: ./log.txt)
+  -f force when it is not an iso of Arch Linux
+  -q quiet don't print to stdout log, only interactive things
+  -e path to EFI device (e.g. /dev/sda1)
+  -a path to device where Arch should be installed
+  -s path to SWAP device
+  -E format EFI device
+  -A format ARCH device
+  -S format SWAP device
+  -w install wifi stuff
+  -f post-install folder with mrcc stuff (default: /root/.mrcc)
+  -r remove the mrcc folder when it isn't needed (will lost logs)
+  -n computer name (default: ARCH-MRCC-`date +"%-d%-m%y"`)
+  -F final command to be executed after install (e.g. "shutdown 0",
+     "reboot" or "exit", default: "shutdown 0")
+EOF
+interactive_mode=false
+license=false
+LOG_FILE="./log.txt"
+force=false
+quiet=false
+efiformat=false
+archformat=false
+swapformat=false
+wifiinstall=false
+mrcc_folder="/root/.mrcc"
+name="ARCH-MRCC-`date +"%-d%-m%y"`"
+finally="shutdown 0"
+
 choice () {
   echo -n "$@ [y/n] "
   while [ true ]
