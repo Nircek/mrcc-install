@@ -189,7 +189,7 @@ init2 () {
   trace-file echo "default arch"
   trace-file echo "timeout 5"
   file="/boot/loader/entries/arch.conf"
-  trace-file echo "title Arch Linux"
+  trace-file echo "title Arch Linux ($name)"
   trace-file echo "linux /vmlinuz-linux"
   trace-file echo "initrd /intel-ucode.img"
   trace-file echo "initrd /initramfs-linux.img"
@@ -202,7 +202,7 @@ init2 () {
   init2
   LOG_FILE="/root/.mrcc/pre/log.txt"
   trace rm /root/.bash_profile
-  [ -e /root/.bash_profile_old ] trace mv /root/.bash_profile_old /root/.bash_profile
+  [ -e /root/.bash_profile_old ] && trace mv /root/.bash_profile_old /root/.bash_profile
   log "Hello world!"
 }
 exit 0
