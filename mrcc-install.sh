@@ -7,7 +7,7 @@
 # Copyright (c) 2019 Nircek
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the \"Software\"), to deal
+# of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
@@ -16,7 +16,7 @@
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
 
-# THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -89,12 +89,10 @@ finally="shutdown 0"
 state="pre-install"
 
 states=(pre-install install post-install -h)
-[ $# -gt 0 ] && { [[ ${states[*]} =~ $1 ]] || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
-state="$1"
+[ $# -gt 0 ] && { [[ ${states[*]} =~ $1 ]] && { state="$1"; shift; } || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
 [ "$state" = "-h" ] && { echo -e "$header\n\n$short_license\n\n$help"; exit 0; }
-shift
 
-args="$@"
+args=( "$@" )
 
 while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:" opt
 do
@@ -115,11 +113,13 @@ do
     f) mrcc_folder="$OPTARG";;
     r) mrcc_remove=true;;
     n) name="$OPTARG";;
-    x) finally="$OPTARG";;
+    x) finally=( "$OPTARG" );;
     \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
     :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
   esac
 done
+
+"${finally[@]}"
 
 shift $(( OPTIND - 1 ))
 [ $# -gt 0 ] && { echo -e "error: too many arguments\n$usage" >&2; exit 5; }
@@ -136,6 +136,7 @@ then
 fi
 
 choice () {
+  [ "$interactive_mode" = "false" ] && return 2
   echo -n "$@ [y/n] "
   while [ true ]
   do
@@ -154,47 +155,42 @@ choice () {
 
 choice-no () {
   choice "$@"
-  [ $? -eq 0 ] && return 1 || return 0
+  r=$?
+  [ $r -eq 2 ] && { return 2; } || { [ $r -eq 0 ] && return 1 || return 0; }
 }
-
-LOG_FILE=log.txt
 
 timed () {
   echo "`date +"[%Y-%m-%d %H:%M:%S]"`> $@"
 }
 
 log () {
-  timed "$@" | tee -a $LOG_FILE
+  [ "$1" = "-q" ] && { arg="-q"; shift; } || arg=""
+  [ "$quiet" = "false" ] && arg=""
+  [ -z "$arg" ] && { timed "$@" | tee -a $LOG_FILE; } || { timed "$@" >> $LOG_FILE; }
 }
 
 trace () {
-  log "$""$@"
-  "$@" 2>&1 | tee -a $LOG_FILE
-  r=${PIPESTATUS[0]}${pipestatus[1]}
-  log "$r"
+  [ "$1" = "-q" ] && { arg="-q"; shift; } || arg=""
+  [ "$quiet" = "false" ] && arg=""
+  log $arg "$""$@"
+  [ -z "$arg" ] && { "$@" 2>&1 | tee -a $LOG_FILE; r=${PIPESTATUS[0]}${pipestatus[1]}; } || { "$@" &>> $LOG_FILE; r=$?; }
+  log $arg "$r"
   return $r
 }
 
 trace-file () {
   # argument: $file
-  log "$""$@ >> $file"
-  "$@" >> "$file" 2>&1 | tee -a $LOG_FILE
-  r=${PIPESTATUS[0]}${pipestatus[1]}
-  log "$r"
+  [ "$1" = "-q" ] && { arg="-q"; shift; } || arg=""
+  [ "$quiet" = "false" ] && arg=""
+  log $arg "$""$@ >> $file"
+  [-z $arg ] && { "$@" >> "$file" 2>&1 | tee -a $LOG_FILE; r=${PIPESTATUS[0]}${pipestatus[1]}; } || { "$@" >> "$file" 2>> $LOG_FILE; r=$?; }
+  log $arg "$r"
   return $r
 }
 
 internet () {
   ping 8.8.8.8 -c1 > /dev/null
 }
-text="mrcc-install
-Copyright (c) 2019 Nircek
-under MIT License
-
-There is NO WARRANTY, to the extent permitted by law.
-I'm not taking any responsibility for anything that this program does.
-Please use it with caution.
-"
 
 init2 () {
   exit () {
@@ -203,10 +199,10 @@ init2 () {
   }
 }
 
-[ "$1" != "install" ] && [ "$1" != "post-install" ] && {
-  echo -e "$text"
-  choice-no "Do you accept this?" && exit 1
-  log "Started logging"
+[ "$state" = "pre-install" ] && {
+  echo -e "$header\n\n$short_license\n"
+  [ "$license" = "false" ] && choice-no "Do you accept this?" && exit 1
+  log -q "Started logging"
   init2
   [ -d /sys/firmware/efi ] || { log "This is not EFI. Sorry."; exit 2; }
   good="is"
@@ -216,15 +212,15 @@ init2 () {
   [ "`uname -s`" = "Linux" ] && [ "`uname -o`" = "GNU/Linux" ] && linux="`uname -sr`" || { bad; linux="NO LINUX"; }
   name="`uname -n`"
   [ "$name" = "archiso" ] || bad
-  log "Your version of system is $archiso."
-  log "Found $linux by uname and $pacman by pacman."
-  log "The nodename is $name."
+  log -q "Your version of system is $archiso."
+  log -q "Found $linux by uname and $pacman by pacman."
+  log -q "The nodename is $name."
   log "I think it $good an iso of Arch Linux."
   [ "$good" != "is" ] && choice-no "Do you REALLY want to continue?" && exit 3
-  trace loadkeys pl
-  trace setfont lat2-16.psfu.gz -m 8859-2
-  internet && trace timedatectl set-ntp true && sleep 5
-  trace timedatectl status
+  trace -q loadkeys pl
+  trace -q setfont lat2-16.psfu.gz -m 8859-2
+  internet && trace -q timedatectl set-ntp true && sleep 5
+  trace -q timedatectl status
   trace fdisk -l
   while true
   do
@@ -235,43 +231,44 @@ init2 () {
     fdisk -l
   done
   read -p"Type the name of your EFI partition: " efidisk
-  choice "Do you want to format it?" && trace mkfs.vfat $efidisk
+  choice "Do you want to format it?" && trace -q mkfs.vfat $efidisk
   while true
   do
     read -p"Type the name of your EXT4 partition: " archdisk
-    choice "I will format it." && trace mkfs.ext4 $archdisk && break
+    choice "I will format it." && trace -q mkfs.ext4 $archdisk && break
   done
   read -p"Type the name of your SWAP partition: " swapdisk
-  choice "Do you want to format it?" && trace mkswap $swapdisk
-  trace swapon $swapdisk
-  trace mount $archdisk /mnt
-  trace mkdir /mnt/boot
-  trace mount $efidisk /mnt/boot
+  choice "Do you want to format it?" && trace -q mkswap $swapdisk
+  trace -q swapon $swapdisk
+  trace -q mount $archdisk /mnt
+  trace -q mkdir /mnt/boot
+  trace -q mount $efidisk /mnt/boot
   choice "Do you want to install Wi-Fi stuff?" && adds="wpa_supplicant dialog" || adds=""
-  trace pacstrap /mnt base $adds
+  echo "Installing..."
+  trace -q pacstrap /mnt base $adds
   file="/mnt/etc/fstab"
-  trace-file genfstab -U /mnt
+  trace-file -q genfstab -U /mnt
   CH_PRE_FOLDER="/root/.mrcc/pre" #CHroot
   PRE_FOLDER="/mnt$CH_PRE_FOLDER"
-  trace mkdir -p $PRE_FOLDER
+  trace -q mkdir -p $PRE_FOLDER
   NEW_LOG_FILE=$PRE_FOLDER/log.txt
-  log "$""mv $LOG_FILE $NEW_LOG_FILE"
+  log -q "$""mv $LOG_FILE $NEW_LOG_FILE"
   mv $LOG_FILE $NEW_LOG_FILE
   LOG_FILE=$PRE_FOLDER/log.txt
-  log "$?"
-  trace cp $0 $PRE_FOLDER/mrcc-install.sh
-  ls ~/.*_history &>/dev/null && trace mv ~/.*_history $PRE_FOLDER
-  log "$""chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
-  arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk
-  log "$?"
-  [ -e .bash_profile ] trace cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
+  log -q "$?"
+  trace -q cp $0 $PRE_FOLDER/mrcc-install.sh
+  ls ~/.*_history &>/dev/null && trace -q mv ~/.*_history $PRE_FOLDER
+  log -q "$""arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
+  arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install "${arg[@]}" -a "$archdisk"
+  log -q "$?"
+  [ -e .bash_profile ] trace -q cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
   file="/mnt/root/.bash_profile"
-  trace-file echo "/root/.mrcc/pre/mrcc-install.sh post-install"
-  trace chmod +x /mnt/root/.bash_profile
+  trace-file -q echo "/root/.mrcc/pre/mrcc-install.sh post-install"
+  trace -q chmod +x /mnt/root/.bash_profile
   shutdown now
 }
 
-[ "$1" = "install" ] && {
+[ "$state" = "install" ] && {
   init2
   LOG_FILE="/root/.mrcc/pre/log.txt"
   trace ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
@@ -310,7 +307,7 @@ init2 () {
   trace pacman -S intel-ucode --noconfirm
 }
 
-[ "$1" = "post-install" ] && {
+[ "$state" = "post-install" ] && {
   init2
   LOG_FILE="/root/.mrcc/pre/log.txt"
   trace rm /root/.bash_profile
