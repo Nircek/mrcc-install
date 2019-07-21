@@ -112,7 +112,7 @@ do
     w) wifiinstall=true;;
     f) mrcc_folder="$OPTARG";;
     r) mrcc_remove=true;;
-    n) name="$OPTARG";;
+    n) compname="$OPTARG";;
     x) finally=( "$OPTARG" );;
     \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
     :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
@@ -216,13 +216,16 @@ init2 () {
   log -q "Found $linux by uname and $pacman by pacman."
   log -q "The nodename is $name."
   log "I think it $good an iso of Arch Linux."
-  [ "$good" != "is" ] && choice-no "Do you REALLY want to continue?" && exit 3
+  if [ "$force" != "true" ] && [ "$good" != "is" ]
+  then
+    [ "$interactive_mode" = "true" ] && { choice "Do you REALLY want to continue?" || exit 3; } || exit 3
+  fi
   trace -q loadkeys pl
   trace -q setfont lat2-16.psfu.gz -m 8859-2
   internet && trace -q timedatectl set-ntp true && sleep 5
   trace -q timedatectl status
-  trace fdisk -l
-  while true
+  [ "$interactive_mode" = "true" ] && trace fdisk -l || trace -q fdisk -l
+  while "$interactive_mode"
   do
     echo "Make 3 partitions: EFI (EF00), EXT4 and SWAP."
     read -p"Type the name of your device (or ':' to go next): " disk
@@ -230,20 +233,24 @@ init2 () {
     trace gdisk $disk
     fdisk -l
   done
-  read -p"Type the name of your EFI partition: " efidisk
-  choice "Do you want to format it?" && trace -q mkfs.vfat $efidisk
-  while true
+  [ "$interactive_mode" = "true"] && read -p"Type the name of your EFI partition: " efidisk
+  if [ "$interactive_mode" = "false"] || choice "Do you want to format it?"
+  then
+    trace -q mkfs.vfat $efidisk
+  fi
+  while "$interactive_mode"
   do
     read -p"Type the name of your EXT4 partition: " archdisk
     choice "I will format it." && trace -q mkfs.ext4 $archdisk && break
   done
-  read -p"Type the name of your SWAP partition: " swapdisk
-  choice "Do you want to format it?" && trace -q mkswap $swapdisk
+  [ "$interactive_mode" = "true"] && read -p"Type the name of your SWAP partition: " swapdisk
+  [ "$interactive_mode" = "true"] && choice "Do you want to format it?" && trace -q mkswap $swapdisk
   trace -q swapon $swapdisk
   trace -q mount $archdisk /mnt
   trace -q mkdir /mnt/boot
   trace -q mount $efidisk /mnt/boot
-  choice "Do you want to install Wi-Fi stuff?" && adds="wpa_supplicant dialog" || adds=""
+  adds=""
+  [ "$interactive_mode" = "true"] && choice "Do you want to install Wi-Fi stuff?" && adds="wpa_supplicant dialog"
   echo "Installing..."
   trace -q pacstrap /mnt base $adds
   file="/mnt/etc/fstab"
@@ -285,20 +292,19 @@ init2 () {
   trace-file echo "KEYMAP=pl"
   trace-file echo "FONT=lat2-16.psfu.gz"
   trace-file echo "FONT_MAP=8859-2"
-  name="ARCH-MRCC-`date +"%-d%-m%y"`"
   file="/etc/hostname"
-  trace-file echo "$name"
+  trace-file echo "$compname"
   file=/etc/hosts
   trace-file echo -e "127.0.0.1\tlocalhost"
   trace-file echo -e "::1\t\tlocalhost"
-  trace-file echo -e "127.0.1.1\t$name.localdomain\t$name"
-  trace passwd
+  trace-file echo -e "127.0.1.1\t$compname.localdomain\t$compname"
+  [ "$interactive_mode" = "true"] && trace passwd
   trace bootctl install
   file="/boot/loader/loader.conf"
   trace-file echo "default arch"
   trace-file echo "timeout 5"
   file="/boot/loader/entries/arch.conf"
-  trace-file echo "title Arch Linux ($name)"
+  trace-file echo "title Arch Linux ($compname)"
   trace-file echo "linux /vmlinuz-linux"
   trace-file echo "initrd /intel-ucode.img"
   trace-file echo "initrd /initramfs-linux.img"
