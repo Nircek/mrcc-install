@@ -40,9 +40,9 @@ read -rd '' help << EOF
 USAGE: $0 <STATE> [OPTIONS]
 
 There are several states:
-pre-install (default)
-install
-post-install
+  pre-install (default)
+  install
+  post-install
 
 There are several options:
   -h display this help message
@@ -72,6 +72,7 @@ Exit codes:
    3 not iso of an Arch Linux and not forced
    4 -i without needed parameters
    5 parse error
+   6 no internet access
 EOF
 interactive_mode=true
 license=false
@@ -84,7 +85,7 @@ swapformat=false
 wifiinstall=false
 mrcc_folder="/root/.mrcc"
 mrcc_remove=false
-name="ARCH-MRCC-`date +"%-d%-m%y"`"
+compname="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
 state="pre-install"
 
@@ -189,7 +190,7 @@ trace-file () {
   [ "$1" = "-q" ] && { arg="-q"; shift; } || arg=""
   [ "$quiet" = "false" ] && arg=""
   log $arg "$""$@ >> $file"
-  [-z $arg ] && { "$@" >> "$file" 2>&1 | tee -a $LOG_FILE; r=${PIPESTATUS[0]}${pipestatus[1]}; } || { "$@" >> "$file" 2>> $LOG_FILE; r=$?; }
+  [ -z $arg ] && { "$@" >> "$file" 2>&1 | tee -a $LOG_FILE; r=${PIPESTATUS[0]}${pipestatus[1]}; } || { "$@" >> "$file" 2>> $LOG_FILE; r=$?; }
   log $arg "$r"
   return $r
 }
@@ -225,7 +226,8 @@ init2 () {
   ( [ "$good" != "is" ] && ! "$force" ) && { ( "$interactive_mode" && choice "Do you REALLY want to continue?" ) || exit 3; }
   trace -q loadkeys pl
   trace -q setfont lat2-16.psfu.gz -m 8859-2
-  internet && trace -q timedatectl set-ntp true && sleep 5
+  internet || { echo "error: you have to have an internet access"; exit 6; }
+  trace -q timedatectl set-ntp true && sleep 5
   trace -q timedatectl status
   "$interactive_mode" && trace fdisk -l || trace -q fdisk -l
   while "$interactive_mode"
@@ -271,7 +273,7 @@ init2 () {
   log -q "$?"
   [ -e .bash_profile ] trace -q cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
   file="/mnt/root/.bash_profile"
-  trace-file -q echo "/root/.mrcc/pre/mrcc-install.sh post-install ${args[@]}"
+  trace-file -q echo "$mrcc_folder/mrcc-install.sh post-install ${args[@]}"
   trace -q chmod +x /mnt/root/.bash_profile
   eval "$finally"
 }
@@ -310,7 +312,7 @@ init2 () {
   trace-file -q echo "initrd /intel-ucode.img"
   trace-file -q echo "initrd /initramfs-linux.img"
   trace-file -q echo "initrd /initramfs-linux-fallback.img"
-  trace-file -q echo "options root=`blkid -o export $2 | grep PARTUUID 2>> $LOG_FILE` rw"
+  trace-file -q echo "options root=`blkid -o export $archdisk | grep PARTUUID 2>> $LOG_FILE` rw"
   trace -q pacman -S intel-ucode --noconfirm
 }
 
