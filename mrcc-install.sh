@@ -254,7 +254,7 @@ init2 () {
   adds=""
   ( "$wifiinstall" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog"
   echo "Installing..."
-  trace -q pacstrap /mnt base "$adds"
+  trace -q pacstrap /mnt base $adds
   file="/mnt/etc/fstab"
   trace-file -q genfstab -U /mnt
   mnt_mrcc_folder="/mnt$mrcc_folder"
