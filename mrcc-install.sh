@@ -119,8 +119,6 @@ do
   esac
 done
 
-"${finally[@]}"
-
 shift $(( OPTIND - 1 ))
 [ $# -gt 0 ] && { echo -e "error: too many arguments\n$usage" >&2; exit 5; }
 
@@ -201,13 +199,13 @@ init2 () {
 
 [ "$state" = "pre-install" ] && {
   echo -e "$header\n\n$short_license\n"
-  [ "$license" = "false" ] && choice-no "Do you accept this?" && exit 1
+  ! "$license" && { ( "$interactive_mode" && choice "Do you accept this?" ) || exit 1; }
   log -q "Started logging"
   init2
   [ -d /sys/firmware/efi ] || { log "This is not EFI. Sorry."; exit 2; }
   good="is"
-  bad () { good="is NOT"; "$@"; }
-  archiso="`find /dev/disk/by-label/ARCH_*  -printf "%f\n" 2>/dev/null`" || { bad; archiso="UNKNOWN"; }
+  bad () { good="is NOT"; }
+  archiso="`find "/dev/disk/by-label/ARCH_*" -printf "%f\n" 2>/dev/null`" || { bad; archiso="UNKNOWN"; }
   pacman="`pacman -Q linux 2>/dev/null`" || { bad; linux="NO PACMAN"; }
   [ "`uname -s`" = "Linux" ] && [ "`uname -o`" = "GNU/Linux" ] && linux="`uname -sr`" || { bad; linux="NO LINUX"; }
   name="`uname -n`"
@@ -216,15 +214,12 @@ init2 () {
   log -q "Found $linux by uname and $pacman by pacman."
   log -q "The nodename is $name."
   log "I think it $good an iso of Arch Linux."
-  if [ "$force" != "true" ] && [ "$good" != "is" ]
-  then
-    [ "$interactive_mode" = "true" ] && { choice "Do you REALLY want to continue?" || exit 3; } || exit 3
-  fi
+  ( [ "$good" != "is" ] && ! "$force" ) && { ( "$interactive_mode" && choice "Do you REALLY want to continue?" ) || exit 3; }
   trace -q loadkeys pl
   trace -q setfont lat2-16.psfu.gz -m 8859-2
   internet && trace -q timedatectl set-ntp true && sleep 5
   trace -q timedatectl status
-  [ "$interactive_mode" = "true" ] && trace fdisk -l || trace -q fdisk -l
+  "$interactive_mode" && trace fdisk -l || trace -q fdisk -l
   while "$interactive_mode"
   do
     echo "Make 3 partitions: EFI (EF00), EXT4 and SWAP."
@@ -233,91 +228,90 @@ init2 () {
     trace gdisk $disk
     fdisk -l
   done
-  [ "$interactive_mode" = "true"] && read -p"Type the name of your EFI partition: " efidisk
-  if [ "$interactive_mode" = "false"] || choice "Do you want to format it?"
-  then
-    trace -q mkfs.vfat $efidisk
-  fi
-  while "$interactive_mode"
+  [ -z "$efidisk" ] && "$interactive_mode" && read -p"Type the name of your EFI partition: " efidisk
+  ( "$efiformat" || ( "$interactive_mode" && choice "Do you want to format it?" ) ) && trace -q mkfs.vfat "$efidisk"
+  first=true
+  while "$interactive_mode" || "$first"
   do
-    read -p"Type the name of your EXT4 partition: " archdisk
-    choice "I will format it." && trace -q mkfs.ext4 $archdisk && break
+    [ -z "archdisk" ] && "$interactive_mode" && read -p"Type the name of your EXT4 partition: " archdisk
+    ( "$efiformat" || ( "$interactive_mode" && choice "I will format it." ) ) && { trace -q mkfs.ext4 "$archdisk"; break; }
+    first=false
   done
-  [ "$interactive_mode" = "true"] && read -p"Type the name of your SWAP partition: " swapdisk
-  [ "$interactive_mode" = "true"] && choice "Do you want to format it?" && trace -q mkswap $swapdisk
-  trace -q swapon $swapdisk
-  trace -q mount $archdisk /mnt
+  [ -z "$swapdisk" ] && "$interactive_mode" && read -p"Type the name of your SWAP partition: " swapdisk
+  ( "$swapformat" || ( "$interactive_mode" && choice "Do you want to format it?" ) ) && trace -q mkswap "$swapdisk"
+  trace -q swapon "$swapdisk"
+  trace -q mount "$archdisk" /mnt
   trace -q mkdir /mnt/boot
-  trace -q mount $efidisk /mnt/boot
+  trace -q mount "$efidisk" /mnt/boot
   adds=""
-  [ "$interactive_mode" = "true"] && choice "Do you want to install Wi-Fi stuff?" && adds="wpa_supplicant dialog"
+  ( "$wifiinstall" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog"
   echo "Installing..."
-  trace -q pacstrap /mnt base $adds
+  trace -q pacstrap /mnt base "$adds"
   file="/mnt/etc/fstab"
   trace-file -q genfstab -U /mnt
-  CH_PRE_FOLDER="/root/.mrcc/pre" #CHroot
-  PRE_FOLDER="/mnt$CH_PRE_FOLDER"
-  trace -q mkdir -p $PRE_FOLDER
-  NEW_LOG_FILE=$PRE_FOLDER/log.txt
+  mnt_mrcc_folder="/mnt$mrcc_folder"
+  trace -q mkdir -p $mnt_mrcc_folder
+  NEW_LOG_FILE=$mnt_mrcc_folder/log.txt
   log -q "$""mv $LOG_FILE $NEW_LOG_FILE"
   mv $LOG_FILE $NEW_LOG_FILE
-  LOG_FILE=$PRE_FOLDER/log.txt
+  LOG_FILE=$NEW_LOG_FILE
   log -q "$?"
-  trace -q cp $0 $PRE_FOLDER/mrcc-install.sh
-  ls ~/.*_history &>/dev/null && trace -q mv ~/.*_history $PRE_FOLDER
-  log -q "$""arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install $archdisk"
-  arch-chroot /mnt $CH_PRE_FOLDER/mrcc-install.sh install "${arg[@]}" -a "$archdisk"
+  trace -q cp $0 $mnt_mrcc_folder/mrcc-install.sh
+  ls ~/.*_history &>/dev/null && trace -q mv ~/.*_history $mnt_mrcc_folder
+  log -q "$""arch-chroot /mnt $mrcc_folder/mrcc-install.sh install ${args[@]} -a $archdisk"
+  arch-chroot /mnt $mrcc_folder/mrcc-install.sh install "${args[@]}" -a "$archdisk"
   log -q "$?"
   [ -e .bash_profile ] trace -q cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
   file="/mnt/root/.bash_profile"
-  trace-file -q echo "/root/.mrcc/pre/mrcc-install.sh post-install"
+  trace-file -q echo "/root/.mrcc/pre/mrcc-install.sh post-install ${args[@]}"
   trace -q chmod +x /mnt/root/.bash_profile
-  shutdown now
+  eval "$finally"
 }
 
 [ "$state" = "install" ] && {
   init2
-  LOG_FILE="/root/.mrcc/pre/log.txt"
-  trace ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
-  trace hwclock --systohc
-  trace timedatectl status
+  LOG_FILE="$mrcc_folder/log.txt"
+  trace -q ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+  trace -q hwclock --systohc
+  trace -q timedatectl status
   file="/etc/locale.gen"
-  trace-file echo "en_US.UTF-8 UTF-8  "
-  trace-file echo "pl_PL.UTF-8 UTF-8  "
-  trace locale-gen
+  trace-file -q echo "en_US.UTF-8 UTF-8  "
+  trace-file -q echo "pl_PL.UTF-8 UTF-8  "
+  trace -q locale-gen
   file="/etc/locale.conf"
-  trace-file echo "LANG=pl_PL.UTF-8"
-  trace-file echo "LANGUAGE=pl_PL"
+  trace-file -q echo "LANG=pl_PL.UTF-8"
+  trace-file -q echo "LANGUAGE=pl_PL"
   file="/etc/vconsole.conf"
-  trace-file echo "KEYMAP=pl"
-  trace-file echo "FONT=lat2-16.psfu.gz"
-  trace-file echo "FONT_MAP=8859-2"
+  trace-file -q echo "KEYMAP=pl"
+  trace-file -q echo "FONT=lat2-16.psfu.gz"
+  trace-file -q echo "FONT_MAP=8859-2"
   file="/etc/hostname"
-  trace-file echo "$compname"
-  file=/etc/hosts
-  trace-file echo -e "127.0.0.1\tlocalhost"
-  trace-file echo -e "::1\t\tlocalhost"
-  trace-file echo -e "127.0.1.1\t$compname.localdomain\t$compname"
-  [ "$interactive_mode" = "true"] && trace passwd
-  trace bootctl install
+  trace-file -q echo "$compname"
+  file="/etc/hosts"
+  trace-file -q echo -e "127.0.0.1\tlocalhost"
+  trace-file -q echo -e "::1\t\tlocalhost"
+  trace-file -q echo -e "127.0.1.1\t$compname.localdomain\t$compname"
+  "$interactive_mode" && trace passwd
+  trace -q bootctl install
   file="/boot/loader/loader.conf"
-  trace-file echo "default arch"
-  trace-file echo "timeout 5"
+  trace-file -q echo "default arch"
+  trace-file -q echo "timeout 5"
   file="/boot/loader/entries/arch.conf"
-  trace-file echo "title Arch Linux ($compname)"
-  trace-file echo "linux /vmlinuz-linux"
-  trace-file echo "initrd /intel-ucode.img"
-  trace-file echo "initrd /initramfs-linux.img"
-  trace-file echo "initrd /initramfs-linux-fallback.img"
-  trace-file echo "options root=`blkid -o export $2 | grep PARTUUID 2>> $LOG_FILE` rw"
-  trace pacman -S intel-ucode --noconfirm
+  trace-file -q echo "title Arch Linux ($compname)"
+  trace-file -q echo "linux /vmlinuz-linux"
+  trace-file -q echo "initrd /intel-ucode.img"
+  trace-file -q echo "initrd /initramfs-linux.img"
+  trace-file -q echo "initrd /initramfs-linux-fallback.img"
+  trace-file -q echo "options root=`blkid -o export $2 | grep PARTUUID 2>> $LOG_FILE` rw"
+  trace -q pacman -S intel-ucode --noconfirm
 }
 
 [ "$state" = "post-install" ] && {
   init2
-  LOG_FILE="/root/.mrcc/pre/log.txt"
+  LOG_FILE="$mrcc_folder/log.txt"
   trace rm /root/.bash_profile
   [ -e /root/.bash_profile_old ] && trace mv /root/.bash_profile_old /root/.bash_profile
   log "Hello world!"
+  "$mrcc_remove" && rm -rf "$mrcc_folder"
 }
 exit 0
