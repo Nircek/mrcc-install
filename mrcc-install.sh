@@ -88,8 +88,16 @@ name="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
 state="pre-install"
 
+containsElement () {
+  # https://stackoverflow.com/a/8574392/6732111
+  local e match="$1"
+  shift
+  for e; do [ "$e" = "$match" ] && return 0; done
+  return 1
+}
+
 states=(pre-install install post-install -h)
-[ $# -gt 0 ] && { [[ ${states[*]} =~ $1 ]] && { state="$1"; shift; } || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
+[ $# -gt 0 ] && { containsElement "$1" "${states[@]}" && { state="$1"; shift; } || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
 [ "$state" = "-h" ] && { echo -e "$header\n\n$short_license\n\n$help"; exit 0; }
 
 args=( "$@" )
@@ -205,7 +213,7 @@ init2 () {
   [ -d /sys/firmware/efi ] || { log "This is not EFI. Sorry."; exit 2; }
   good="is"
   bad () { good="is NOT"; }
-  archiso="`find "/dev/disk/by-label/ARCH_*" -printf "%f\n" 2>/dev/null`" || { bad; archiso="UNKNOWN"; }
+  archiso="`find /dev/disk/by-label/ARCH_* -printf "%f\n" 2>/dev/null`" || { bad; archiso="UNKNOWN"; }
   pacman="`pacman -Q linux 2>/dev/null`" || { bad; linux="NO PACMAN"; }
   [ "`uname -s`" = "Linux" ] && [ "`uname -o`" = "GNU/Linux" ] && linux="`uname -sr`" || { bad; linux="NO LINUX"; }
   name="`uname -n`"
@@ -233,7 +241,7 @@ init2 () {
   first=true
   while "$interactive_mode" || "$first"
   do
-    [ -z "archdisk" ] && "$interactive_mode" && read -p"Type the name of your EXT4 partition: " archdisk
+    [ -z "$archdisk" ] && "$interactive_mode" && read -p"Type the name of your EXT4 partition: " archdisk
     ( "$efiformat" || ( "$interactive_mode" && choice "I will format it." ) ) && { trace -q mkfs.ext4 "$archdisk"; break; }
     first=false
   done
