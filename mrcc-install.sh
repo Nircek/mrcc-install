@@ -254,9 +254,9 @@ init2 () {
   trace -q mkdir /mnt/boot
   trace -q mount "$efidisk" /mnt/boot
   adds=""
-  ( "$wifiinstall" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog"
+  ( "$wifiinstall" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog netctl dhcpcd"
   echo "Installing..."
-  trace -q pacstrap /mnt base $adds
+  trace -q pacstrap /mnt base linux linux-firmware $adds
   file="/mnt/etc/fstab"
   trace-file -q genfstab -U /mnt
   mnt_mrcc_folder="/mnt$mrcc_folder"
