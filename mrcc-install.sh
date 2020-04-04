@@ -98,7 +98,7 @@ containsElement () {
 }
 
 states=(pre-install install post-install -h)
-[ $# -gt 0 ] && { containsElement "$1" "${states[@]}" && { state="$1"; shift; } || { echo -e "error: there is no such state like \"$1\""; exit 5; } }
+[ $# -gt 0 ] && { containsElement "$1" "${states[@]}" && { state="$1"; shift; } || { echo -e "error: there is no such state like \"$1\"" >&2; exit 5; } }
 [ "$state" = "-h" ] && { echo -e "$header\n\n$short_license\n\n$help"; exit 0; }
 
 args=( "$@" )
@@ -226,7 +226,7 @@ init2 () {
   ( [ "$good" != "is" ] && ! "$force" ) && { ( "$interactive_mode" && choice "Do you REALLY want to continue?" ) || exit 3; }
   trace -q loadkeys pl
   trace -q setfont lat2-16.psfu.gz -m 8859-2
-  internet || { echo "error: you have to have an internet access"; exit 6; }
+  internet || { echo "error: you have to have an internet access"  >&2; exit 6; }
   trace -q timedatectl set-ntp true && sleep 5
   trace -q timedatectl status
   "$interactive_mode" && trace fdisk -l || trace -q fdisk -l
