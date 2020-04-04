@@ -321,6 +321,7 @@ init2 () {
   LOG_FILE="$mrcc_folder/log.txt"
   trace rm /root/.bash_profile
   [ -e /root/.bash_profile_old ] && trace mv /root/.bash_profile_old /root/.bash_profile
+  "$interactive_mode" && choice-no "Do you want to create a new user?" && { read -p"Type the username: " username; trace useradd -m -G users -s /bin/bash "$username"; file="/etc/sudoers"; trace-file echo "$username ALL=(ALL) ALL"; passwd "$username"; }
   log "Hello world!"
   "$mrcc_remove" && rm -rf "$mrcc_folder"
 }
