@@ -4,7 +4,7 @@
 
 # MIT License
 
-# Copyright (c) 2019 Nircek
+# Copyright (c) 2019-2020 Nircek
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@
 
 read -rd '' header << EOF
 mrcc-install
-Copyright (c) 2019 Nircek
+Copyright (c) 2019-2020 Nircek
 under MIT License
 EOF
 read -rd '' short_license << EOF
@@ -65,6 +65,8 @@ There are several options:
   -n computer name (default: ARCH-MRCC-`date +"%-d%-m%y"`)
   -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")
+  -Y install yay
+  -b install timeshift and make a backup after installation
 
 Exit codes:
    1 license disagreement
@@ -88,6 +90,8 @@ mrcc_remove=false
 compname="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
 state="pre-install"
+yay=false
+backup=false
 
 containsElement () {
   # https://stackoverflow.com/a/8574392/6732111
@@ -123,6 +127,8 @@ do
     r) mrcc_remove=true;;
     n) compname="$OPTARG";;
     x) finally=( "$OPTARG" );;
+    y) yay=true;;
+    b) yay=true;backup=true;;
     \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
     :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
   esac
@@ -271,10 +277,6 @@ init2 () {
   log -q "$""arch-chroot /mnt $mrcc_folder/mrcc-install.sh install ${args[@]} -a $archdisk"
   arch-chroot /mnt $mrcc_folder/mrcc-install.sh install "${args[@]}" -a "$archdisk"
   log -q "$?"
-  [ -e .bash_profile ] trace -q cp /mnt/root/.bash_profile /mnt/root/.bash_profile_old
-  file="/mnt/root/.bash_profile"
-  trace-file -q echo "$mrcc_folder/mrcc-install.sh post-install ${args[@]}"
-  trace -q chmod +x /mnt/root/.bash_profile
   eval "$finally"
 }
 
@@ -314,6 +316,14 @@ init2 () {
   trace-file -q echo "initrd /initramfs-linux-fallback.img"
   trace-file -q echo "options root=`blkid -o export $archdisk | grep PARTUUID 2>> $LOG_FILE` rw"
   trace -q pacman -S intel-ucode --noconfirm
+  backprompt=true
+  "$interactive_mode" && choice-no "Do you want to create a new user?" && { read -p"Type the username: " username; trace useradd -m -G users -s /bin/bash "$username"; file="/etc/sudoers"; trace-file echo "$username ALL=(ALL) ALL"; passwd "$username"; file="/etc/sudoers.d/temp"; trace chmod 0440 /etc/sudoers.d/temp; trace-file -q echo "$username  ALL=(ALL) NOPASSWD: ALL"; } &&  ( "$yay" || ( "$interactive_mode" && choice "Do you want to install AUR helper?" ) ) && { trace -q pacman -S base-devel git --noconfirm; su "$username" '{ cd /tmp; git clone https://aur.archlinux.org/yay.git; cd yay; makepkg -si --noconfirm; }'; } && ( "$backup" || ( "$interactive_mode" && choice "Do you want to install timeshift and make a backup (via yay)?" && args+=(-b) || { backprompt=false; false; } ) ) && { trace -q yay -S timeshift --noconfirm; }
+  "$backprompt" && ( "$backup" || ( "$interactive_mode" && choice "Do you want to install timeshift and make a backup?" && args+=(-b) ) ) && { trace -q pacman -S base-devel git --noconfirm; su "$username" '{ cd /tmp; git clone https://aur.archlinux.org/timeshift.git; cd timeshift; makepkg -si --noconfirm; }'; }
+  [ -e /etc/sudoers.d/temp ] && rm /etc/sudoers.d/temp
+  [ -e /root/.bash_profile ] && trace -q cp /root/.bash_profile /root/.bash_profile_old
+  file="/root/.bash_profile"
+  trace-file -q echo "$mrcc_folder/mrcc-install.sh post-install ${args[@]}"
+  trace -q chmod +x /root/.bash_profile
 }
 
 [ "$state" = "post-install" ] && {
@@ -321,7 +331,7 @@ init2 () {
   LOG_FILE="$mrcc_folder/log.txt"
   trace rm /root/.bash_profile
   [ -e /root/.bash_profile_old ] && trace mv /root/.bash_profile_old /root/.bash_profile
-  "$interactive_mode" && choice-no "Do you want to create a new user?" && { read -p"Type the username: " username; trace useradd -m -G users -s /bin/bash "$username"; file="/etc/sudoers"; trace-file echo "$username ALL=(ALL) ALL"; passwd "$username"; }
+  "$backup" && trace -q timeshift --create --comments "init" --scripted
   log "Hello world!"
   "$mrcc_remove" && rm -rf "$mrcc_folder"
 }

@@ -47,6 +47,8 @@ There are several options:
   -n computer name (default: ARCH-MRCC-<MRCCtime>)
   -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")
+  -Y install yay
+  -b install timeshift and make a backup after installation
 
 Exit codes:
    1 license disagreement
@@ -60,4 +62,4 @@ Exit codes:
 ## Examples
  - `./mrcc-install.sh` - launch default interactive mode
  - `./mrcc-install.sh -h` - display a help message
- - `./mrcc-install.sh -iLEAw -e /dev/sda4 -a /dev/sda5 -s /dev/sda8 -n "ARCH-LAPTOP" -x "reboot"` - example of a good command excuting non-interactive mode
+ - `./mrcc-install.sh -iLEAw -e /dev/sda4 -a /dev/sda5 -s /dev/sda8 -n "ARCH-LAPTOP" -x "reboot" -b` - example of a good command excuting non-interactive mode
