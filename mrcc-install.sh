@@ -65,7 +65,6 @@ There are several options:
   -n computer name (default: ARCH-MRCC-`date +"%-d%-m%y"`)
   -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")
-  -Y install yay
   -b install timeshift and make a backup after installation
 
 Exit codes:
@@ -90,7 +89,6 @@ mrcc_remove=false
 compname="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
 state="pre-install"
-yay=false
 backup=false
 
 containsElement () {
@@ -107,7 +105,7 @@ states=(pre-install install post-install -h)
 
 args=( "$@" )
 
-while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:" opt
+while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:b" opt
 do
   case $opt in
     h) echo -e "$header\n\n$short_license\n\n$help"; exit 0;;
@@ -127,8 +125,7 @@ do
     r) mrcc_remove=true;;
     n) compname="$OPTARG";;
     x) finally=( "$OPTARG" );;
-    y) yay=true;;
-    b) yay=true;backup=true;;
+    b) backup=true;;
     \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
     :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
   esac
@@ -317,48 +314,24 @@ init2 () {
   trace-file -q echo "initrd /initramfs-linux-fallback.img"
   trace-file -q echo "options root=`blkid -o export $archdisk | grep PARTUUID 2>> $LOG_FILE` rw"
   trace -q pacman -S intel-ucode --noconfirm
-  backprompt=true
   "$interactive_mode" && choice "Do you want to create a new user?" && {
     read -p"Type the username: " username
     trace useradd -m -G users -s /bin/bash "$username"
     passwd "$username"
     trace -q pacman -S sudo --noconfirm
     file="/etc/sudoers.d/temp"
-    trace chmod 0440 /etc/sudoers.d/temp
     trace-file -q echo "$username  ALL=(ALL) NOPASSWD: ALL"
+    trace chmod 0440 /etc/sudoers.d/temp
   } && {
-    ( "$yay" ||
-      ( "$interactive_mode" &&
-      choice "Do you want to install AUR helper?" )
-    ) && {
-      trace -q pacman -S base-devel git --noconfirm
-      su "$username" -c '{
-        cd /tmp
-        git clone https://aur.archlinux.org/yay.git
-        cd yay
-        makepkg -si --noconfirm
-      }'
-    } && {
-      "$backup" || {
-        "$interactive_mode" &&
-        choice "Do you want to install timeshift and make a backup (via yay)?" &&
-        args+=(-b) || {
-          backprompt=false
-          false
-        }
-      }
-    } && {
-      trace -q yay -S timeshift --noconfirm
-    }
-    "$backprompt" && {
+    {
       "$backup" || {
         "$interactive_mode" &&
         choice "Do you want to install timeshift and make a backup?" &&
         args+=(-b)
       }
     } && {
-      trace -q pacman -S base-devel git --noconfirm
-      su -c "$username" '{
+      trace -q pacman -S base-devel git cronie --noconfirm
+      su "$username" -c '{
         cd /tmp
         git clone https://aur.archlinux.org/timeshift.git
         cd timeshift

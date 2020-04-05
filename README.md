@@ -46,8 +46,7 @@ There are several options:
   -r remove the mrcc folder when it isn't needed (will lost logs)
   -n computer name (default: ARCH-MRCC-<MRCCtime>)
   -x final command to be executed after install (e.g. "shutdown 0",
-     "reboot" or "exit", default: "shutdown 0")
-  -Y install yay
+     "reboot" or "exit", default: "shutdown 0")\
   -b install timeshift and make a backup after installation
 
 Exit codes:
