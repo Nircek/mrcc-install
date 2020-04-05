@@ -194,6 +194,7 @@ trace () {
 trace-file () {
   # argument: $file
   [ "$1" = "-q" ] && { arg="-q"; shift; } || arg=""
+  touch "$1"
   [ "$quiet" = "false" ] && arg=""
   log $arg "$""$@ >> $file"
   [ -z $arg ] && { "$@" >> "$file" 2>&1 | tee -a $LOG_FILE; r=${PIPESTATUS[0]}${pipestatus[1]}; } || { "$@" >> "$file" 2>> $LOG_FILE; r=$?; }
@@ -317,8 +318,57 @@ init2 () {
   trace-file -q echo "options root=`blkid -o export $archdisk | grep PARTUUID 2>> $LOG_FILE` rw"
   trace -q pacman -S intel-ucode --noconfirm
   backprompt=true
-  "$interactive_mode" && choice "Do you want to create a new user?" && { read -p"Type the username: " username; trace useradd -m -G users -s /bin/bash "$username"; passwd "$username"; file="/etc/sudoers.d/temp"; trace chmod 0440 /etc/sudoers.d/temp; trace-file -q echo "$username  ALL=(ALL) NOPASSWD: ALL"; } && { ( "$yay" || ( "$interactive_mode" && choice "Do you want to install AUR helper?" ) ) && { trace -q pacman -S base-devel git --noconfirm; su "$username" -c '{ cd /tmp; git clone https://aur.archlinux.org/yay.git; cd yay; makepkg -si --noconfirm; }'; } && { "$backup" || { "$interactive_mode" && choice "Do you want to install timeshift and make a backup (via yay)?" && args+=(-b) || { backprompt=false; false; } } } && { trace -q yay -S timeshift --noconfirm; }
-  "$backprompt" && { "$backup" || { "$interactive_mode" && choice "Do you want to install timeshift and make a backup?" && args+=(-b) } } && { trace -q pacman -S base-devel git --noconfirm; su -c "$username" '{ cd /tmp; git clone https://aur.archlinux.org/timeshift.git; cd timeshift; makepkg -si --noconfirm; }'; }; rm /etc/sudoers.d/temp; file="/etc/sudoers"; trace-file echo "$username ALL=(ALL) ALL"; }
+  "$interactive_mode" && choice "Do you want to create a new user?" && {
+    read -p"Type the username: " username
+    trace useradd -m -G users -s /bin/bash "$username"
+    passwd "$username"
+    trace -q pacman -S sudo --noconfirm
+    file="/etc/sudoers.d/temp"
+    trace chmod 0440 /etc/sudoers.d/temp
+    trace-file -q echo "$username  ALL=(ALL) NOPASSWD: ALL"
+  } && {
+    ( "$yay" ||
+      ( "$interactive_mode" &&
+      choice "Do you want to install AUR helper?" )
+    ) && {
+      trace -q pacman -S base-devel git --noconfirm
+      su "$username" -c '{
+        cd /tmp
+        git clone https://aur.archlinux.org/yay.git
+        cd yay
+        makepkg -si --noconfirm
+      }'
+    } && {
+      "$backup" || {
+        "$interactive_mode" &&
+        choice "Do you want to install timeshift and make a backup (via yay)?" &&
+        args+=(-b) || {
+          backprompt=false
+          false
+        }
+      }
+    } && {
+      trace -q yay -S timeshift --noconfirm
+    }
+    "$backprompt" && {
+      "$backup" || {
+        "$interactive_mode" &&
+        choice "Do you want to install timeshift and make a backup?" &&
+        args+=(-b)
+      }
+    } && {
+      trace -q pacman -S base-devel git --noconfirm
+      su -c "$username" '{
+        cd /tmp
+        git clone https://aur.archlinux.org/timeshift.git
+        cd timeshift
+        makepkg -si --noconfirm
+      }'
+    };
+    rm /etc/sudoers.d/temp
+    file="/etc/sudoers"
+    trace-file echo "$username ALL=(ALL) ALL"
+  }
   [ -e /root/.bash_profile ] && trace -q cp /root/.bash_profile /root/.bash_profile_old
   file="/root/.bash_profile"
   trace-file -q echo "$mrcc_folder/mrcc-install.sh post-install ${args[@]}"
