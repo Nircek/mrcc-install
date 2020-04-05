@@ -66,6 +66,7 @@ There are several options:
   -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")
   -b install timeshift and make a backup after installation
+  -d default, don't ask
 
 Exit codes:
    1 license disagreement
@@ -90,6 +91,7 @@ compname="ARCH-MRCC-`date +"%-d%-m%y"`"
 finally="shutdown 0"
 state="pre-install"
 backup=false
+default=false
 
 containsElement () {
   # https://stackoverflow.com/a/8574392/6732111
@@ -105,7 +107,7 @@ states=(pre-install install post-install -h)
 
 args=( "$@" )
 
-while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:b" opt
+while getopts ":hiLl:Fqe:a:s:EASwf:rn:x:bd" opt
 do
   case $opt in
     h) echo -e "$header\n\n$short_license\n\n$help"; exit 0;;
@@ -126,6 +128,7 @@ do
     n) compname="$OPTARG";;
     x) finally=( "$OPTARG" );;
     b) backup=true;;
+    d) default=true;;
     \?) echo -e "error: invalid option: -$OPTARG\n$usage" >&2; exit 5;;
     :) echo -e "error: option -$OPTARG requires an argument\n$usage" >&2; exit 5;;
   esac
@@ -258,7 +261,7 @@ init2 () {
   trace -q mkdir /mnt/boot
   trace -q mount "$efidisk" /mnt/boot
   adds=""
-  ( "$wifiinstall" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog netctl dhcpcd"
+  ( "$wifiinstall" || "$default" || ( "$interactive_mode" && choice "Do you want to install Wi-Fi stuff?" ) ) && adds="wpa_supplicant dialog netctl dhcpcd"
   echo "Installing..."
   trace -q pacstrap /mnt base linux linux-firmware $adds
   file="/mnt/etc/fstab"
@@ -314,7 +317,7 @@ init2 () {
   trace-file -q echo "initrd /initramfs-linux-fallback.img"
   trace-file -q echo "options root=`blkid -o export $archdisk | grep PARTUUID 2>> $LOG_FILE` rw"
   trace -q pacman -S intel-ucode --noconfirm
-  "$interactive_mode" && choice "Do you want to create a new user?" && {
+  "$interactive_mode" || "$default" && choice "Do you want to create a new user?" && {
     read -p"Type the username: " username
     trace useradd -m -G users -s /bin/bash "$username"
     passwd "$username"
@@ -324,7 +327,7 @@ init2 () {
     trace chmod 0440 /etc/sudoers.d/temp
   } && {
     {
-      "$backup" || {
+      "$backup" || "$default" || {
         "$interactive_mode" &&
         choice "Do you want to install timeshift and make a backup?" &&
         args+=(-b)

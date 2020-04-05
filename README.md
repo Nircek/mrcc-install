@@ -48,6 +48,7 @@ There are several options:
   -x final command to be executed after install (e.g. "shutdown 0",
      "reboot" or "exit", default: "shutdown 0")\
   -b install timeshift and make a backup after installation
+  -d default, don't ask
 
 Exit codes:
    1 license disagreement
